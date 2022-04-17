@@ -3,15 +3,16 @@ import sys
 import requests
 import json
 from colorama import Fore
+import argparse
 
 class Parser(HTMLParser):
-    incorrect = []
+    highlighted = []
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         pass
     def handle_endtag(self, tag: str) -> None:
         pass
     def handle_data(self, data: str) -> None:
-        self.incorrect.append(data)
+        self.highlighted.append(data)
 s = requests.Session()
 
 def get_headers():
@@ -47,14 +48,21 @@ def get_results(input_text):
 
 def main():
     set_cookies(s,"csrftoken=RytOrbEARiqawQPjwJAolFNBiu3XFao5RngJgpreaTxmcKvcEV9WTj3Ay8oAFzNS")
-    if len(sys.argv) < 2 or len(sys.argv) >2:
-        print("Only accept 1 argument: Input text")
-        exit()
-    input_text=sys.argv[1]
+    argParser = argparse.ArgumentParser()
+    argParser.add_argument("-i","--input",help="Input text from directly terminal")
+    argParser.add_argument("-f","--file",help="Input text from file")
+    args = argParser.parse_args()
+
+    if args.input:
+        terminal_input(args.input)
+    elif args.file:
+        file_input(args.file)
+
+def terminal_input(input_text):
     results=get_results(input_text)
     parser = Parser()
     parser.feed(results["html"])
-    incorrect_words = parser.incorrect
+    incorrect_words = parser.highlighted
     print("Input text: ",end="")
     for i in results["text"].split(" "):
         if i in incorrect_words:
@@ -63,9 +71,11 @@ def main():
             print(i+" ",end="")
     print("\n")
     parser = Parser()
+    parser.feed(results["html_suggested"])
+    suggested_words = parser.highlighted
     print("Suggested text: ",end="")
     for i in results["suggested_text"].split(" "):
-        if i in incorrect_words:
+        if i in suggested_words:
             print(Fore.CYAN + i + Fore.RESET+" ",end="")
         else:
             print(i+" ",end="")
@@ -73,6 +83,15 @@ def main():
 
     #print(bs(results["html_suggested"],'html.parser').prettify())
     print("Error count:",results["error_count"])
+
+def file_input(fileName):
+    f = open(fileName,"r",encoding='utf-8')
+    for input in f:
+        results=get_results(input)
+        out = open(file=fileName.split(".")[0]+"_suggested."+fileName.split(".")[1],mode="a",encoding="utf-8")
+        out.write(results["suggested_text"])
+        out.close()
+    f.close()
 
 
 

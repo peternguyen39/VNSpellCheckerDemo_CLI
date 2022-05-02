@@ -1,10 +1,13 @@
 from html.parser import HTMLParser
 import sys
+import os
 import requests
 import json
 from colorama import Fore
 import argparse
 
+global textExtensions
+textExtensions = (".txt",".docx","doc","pdf","odt","rtf",".tex")
 class Parser(HTMLParser):
     highlighted = []
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -33,16 +36,19 @@ def get_results(input_text):
     s.post("https://nlp.laban.vn/",headers=get_headers())
     data = {'text':input_text.encode('utf-8')}
     r=s.post("https://nlp.laban.vn/wiki/ajax_spelling_checker_check/",data=data,headers=get_headers())
-    # if r.status_code==200:
+    if r.status_code==200:
     #     print("Request successful")
-    response_dict = json.loads(r.text)
+        response_dict = json.loads(r.text)
     #print(response_dict['result'])
     #print(str(response_dict["result"]).split(","),"\n")
     #print(type(response_dict["result"][0]))
     # for c in response_dict["result"][0]:
     #     with c.keys()[0] as key:
     #         parsed_dict[key]=c[key]
-    return response_dict["result"][0]
+        try:
+            return response_dict["result"][0]
+        except:
+            return None
     #return parsed_dict
         
 
@@ -51,15 +57,20 @@ def main():
     argParser = argparse.ArgumentParser()
     argParser.add_argument("-i","--input",help="Input text from directly terminal")
     argParser.add_argument("-f","--file",help="Input text from file")
+    argParser.add_argument("-d","--directory",help="Use all text files in directory as input files")
     args = argParser.parse_args()
 
     if args.input:
         terminal_input(args.input)
     elif args.file:
         file_input(args.file)
+    elif args.directory:
+        dir_input(args.directory)
 
 def terminal_input(input_text):
     results=get_results(input_text)
+    if results == None:
+        return
     parser = Parser()
     parser.feed(results["html"])
     incorrect_words = parser.highlighted
@@ -86,12 +97,22 @@ def terminal_input(input_text):
 
 def file_input(fileName):
     f = open(fileName,"r",encoding='utf-8')
+    file_name = fileName.split("\\")[-1]
     for input in f:
         results=get_results(input)
-        out = open(file=fileName.split(".")[0]+"_suggested."+fileName.split(".")[1],mode="a",encoding="utf-8")
+        if results == None:
+            continue
+        out = open(file=file_name.split(".")[0]+"_suggested."+file_name.split(".")[1],mode="a",encoding="utf-8")
         out.write(results["suggested_text"])
         out.close()
     f.close()
+
+def dir_input(directory):
+    for file in os.listdir(directory):
+        if os.path.isfile(os.path.join(directory,file)):
+            if file.endswith(textExtensions):
+                print(os.path.join(directory,file))
+                file_input(os.path.join(directory,file))
 
 
 
